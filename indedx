@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка координат через Яндекс.Карты API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .api-key-section {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .api-key-section input {
+            width: 400px;
+            padding: 8px;
+            margin: 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #progress {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+        #results {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .stats {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .warning {
+            color: #f57c00;
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #388e3c;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .comparison {
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .significant-diff {
+            background: #ffebee;
+            font-weight: bold;
+        }
+        #outputData {
+            margin-top: 20px;
+        }
+        #map {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            display: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Проверка и исправление координат через API Яндекс.Карт</h1>
+        
+        <div class="api-key-section">
+            <label for="apiKey">API ключ Яндекс.Карт:</label>
+            <input type="text" id="apiKey" placeholder="Введите ваш API ключ">
+            <button onclick="loadYandexAPI()">Загрузить API</button>
+            <span id="apiStatus"></span>
+            <br>
+            <small style="display: block; margin-top: 10px;">
+                Получить ключ можно на <a href="https://developer.tech.yandex.ru/services/" target="_blank">developer.tech.yandex.ru</a>
+                <br>Нужен ключ для JavaScript API и HTTP Геокодер
+            </small>
+        </div>
+
+        <div class="instructions">
+            <h3>Инструкция:</h3>
+            <ol>
+                <li>Получите API ключ на сайте Яндекса</li>
+                <li>Вставьте ключ и нажмите "Загрузить API"</li>
+                <li>Дождитесь загрузки API (появится зеленое сообщение)</li>
+                <li>Вставьте данные из файла в текстовое поле</li>
+                <li>Нажмите "Проверить координаты"</li>
+            </ol>
+        </div>
+
+        <h3>Исходные данные:</h3>
+        <textarea id="inputData" placeholder="Вставьте сюда данные из файла (широта[TAB]долгота[TAB]адрес[TAB]компания)..."></textarea>
+        
+        <div>
+            <button onclick="checkCoordinates()" id="checkBtn" disabled>Проверить координаты</button>
+            <button onclick="testAPI()" id="testBtn" disabled>Тест API</button>
+            <button onclick="downloadResults()" id="downloadBtn" disabled>Скачать результат</button>
+            <button onclick="clearAll()">Очистить</button>
+        </div>
+        
+        <div id="progress">
+            <div id="progressText"></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div id="stats" class="stats" style="display: none;"></div>
+        <div id="results"></div>
+        
+        <div id="outputData" style="display: none;">
+            <h3>Исправленные данные:</h3>
+            <textarea id="outputTextarea" rows="20"></textarea>
+        </div>
+    </div>
+
+    <script>
+        let ymaps = null;
+        let correctedData = [];
+        let totalProcessed = 0;
+        let totalCorrected = 0;
+        let errors = [];
+        let myMap = null;
+
+        // Загрузка API Яндекс.Карт
+        function loadYandexAPI() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const statusSpan = document.getElementById('apiStatus');
+            
+            if (!apiKey) {
+                alert('Пожалуйста, введите API ключ');
+                return;
+            }
+            
+            statusSpan.innerHTML = '<span class="loading"></span> Загрузка API...';
+            
+            // Удаляем старый скрипт если есть
+            const oldScript = document.getElementById('yandex-maps-api');
+            if (oldScript) {
+                oldScript.remove();
+            }
+            
+            // Создаем новый скрипт
+            const script = document.createElement('script');
+            script.id = 'yandex-maps-api';
+            script.src = `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU`;
+            script.onload = function() {
+                window.ymaps.ready(() => {
+                    ymaps = window.ymaps;
+                    statusSpan.innerHTML = '<span style="color: green;">✓ API загружен успешно!</span>';
+                    document.getElementById('checkBtn').disabled = false;
+                    document.getElementById('testBtn').disabled = false;
+                    
+                    // Инициализируем карту
+                    if (!myMap) {
+                        document.getElementById('map').style.display = 'block';
+                        myMap = new ymaps.Map('map', {
+                            center: [53.9, 27.5667], // Минск
+                            zoom: 6
+                        });
+                    }
+                });
+            };
+            script.onerror = function() {
+                statusSpan.innerHTML = '<span style="color: red;">✗ Ошибка загрузки API. Проверьте ключ.</span>';
+            };
+            document.head.appendChild(script);
+        }
+
+        // Тестирование API
+        async function testAPI() {
+            if (!ymaps) {
+                alert('Сначала загрузите API');
+                return;
+            }
+            
+            const testAddress = 'Беларусь, Минск, проспект Независимости 1';
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = '<div class="warning">Тестирование API...</div>';
+            
+            try {
+                const result = await ymaps.geocode(testAddress);
+                const firstGeoObject = result.geoObjects.get(0);
+                
+                if (firstGeoObject) {
+                    const coords = firstGeoObject.geometry.getCoordinates();
+                    const address = firstGeoObject.getAddressLine();
+                    const precision = firstGeoObject.properties.get('metaDataProperty.GeocoderMetaData.precision');
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="success">
+                            <h4>API работает корректно!</h4>
+                            <p>Тестовый адрес: ${testAddress}</p>
+                            <p>Найденный адрес: ${address}</p>
+                            <p>Координаты: [${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}]</p>
+                            <p>Точность: ${precision}</p>
+                        </div>
+                    `;
+                    
+                    // Показываем на карте
+                    myMap.setCenter(coords, 15);
+                    const placemark = new ymaps.Placemark(coords, {
+                        hintContent: address,
+                        balloonContent: `${address}<br>Координаты: ${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}`
+                    });
+                    myMap.geoObjects.add(placemark);
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">Тестовый адрес не найден</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+            }
+        }
+
+        // Функция геокодирования
+        async function geocodeAddress(address) {
+            return new Promise((resolve) => {
+                ymaps.geocode(address, {
+                    results: 1
+                }).then(function (res) {
+                    const firstGeoObject = res.geoObjects.get(0);
+                    if (firstGeoObject) {
+                        const coords = firstGeoObject.geometry.getCoordinates();
+                        const precision = firstGeoObject.properties.get('metaDataProperty.GeocoderMetaData.precision');
+                        const foundAddress = firstGeoObject.getAddressLine();
+                        
+                        resolve({
+                            found: true,
+                            lat: coords[0],
+                            lon: coords[1],
+                            precision: precision,
+                            foundAddress: foundAddress
+                        });
+                    } else {
+                        resolve({ found: false });
+                    }
+                }).catch(error => {
+                    console.error('Ошибка геокодирования:', error);
+                    resolve({ found: false, error: error.message });
+                });
+            });
+        }
+
+        // Вычисление расстояния между точками
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Радиус Земли в км
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Основная функция проверки
+        async function checkCoordinates() {
+            if (!ymaps) {
+                alert('Сначала загрузите API');
+                return;
+            }
+            
+            const inputData = document.getElementById('inputData').value.trim();
+            if (!inputData) {
+                alert('Пожалуйста, вставьте данные для проверки');
+                return;
+            }
+            
+            const lines = inputData.split('\n');
+            const progressDiv = document.getElementById('progress');
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            const resultsDiv = document.getElementById('results');
+            
+            // Очищаем карту
+            myMap.geoObjects.removeAll();
+            
+            progressDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            correctedData = [];
+            totalProcessed = 0;
+            totalCorrected = 0;
+            errors = [];
+            
+            // Создаем коллекцию для меток
+            const collection = new ymaps.GeoObjectCollection();
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) {
+                    correctedData.push('');
+                    continue;
+                }
+                
+                const parts = line.split('\t');
+                if (parts.length < 3) {
+                    correctedData.push(line);
+                    continue;
+                }
+                
+                const currentLat = parseFloat(parts[0]);
+                const currentLon = parseFloat(parts[1]);
+                const address = parts[2].trim();
+                const company = parts[3] || '';
+                
+                if (isNaN(currentLat) || isNaN(currentLon)) {
+                    correctedData.push(line);
+                    continue;
+                }
+                
+                // Пропускаем заголовки областей
+                if (address.includes('область') && !address.match(/г\.|ул\.|пр-т|пр\.|д\.|аг/)) {
+                    correctedData.push(line);
+                    continue;
+                }
+                
+                progressText.innerHTML = `Проверка ${i + 1} из ${lines.length}: ${address}...`;
+                progressFill.style.width = ((i + 1) / lines.length * 100) + '%';
+                
+                // Формируем полный адрес
+                let fullAddress = address;
+                if (!address.toLowerCase().includes('беларусь') && !address.toLowerCase().includes('область')) {
+                    fullAddress = 'Беларусь, ' + address;
+                }
+                
+                const result = await geocodeAddress(fullAddress);
+                
+                if (result.found) {
+                    const distance = calculateDistance(currentLat, currentLon, result.lat, result.lon);
+                    
+                    if (distance > 0.1) { // Больше 100 метров
+                        totalCorrected++;
+                        
+                        const comparisonDiv = document.createElement('div');
+                        comparisonDiv.className = distance > 1 ? 'comparison significant-diff' : 'comparison';
+                        comparisonDiv.innerHTML = `
+                            <strong>${address}</strong> ${company ? `(${company})` : ''}<br>
+                            Найдено: ${result.foundAddress}<br>
+                            Было: [${currentLat}, ${currentLon}]<br>
+                            Стало: [${result.lat.toFixed(6)}, ${result.lon.toFixed(6)}]<br>
+                            Расстояние: ${distance.toFixed(2)} км | Точность: ${result.precision}
+                        `;
+                        resultsDiv.appendChild(comparisonDiv);
+                        
+                        // Добавляем метки на карту
+                        const oldPlacemark = new ymaps.Placemark([currentLat, currentLon], {
+                            hintContent: 'Старые координаты',
+                            balloonContent: `${address}<br>Старые: ${currentLat}, ${currentLon}`
+                        }, {
+                            preset: 'islands#redDotIcon'
+                        });
+                        
+                        const newPlacemark = new ymaps.Placemark([result.lat, result.lon], {
+                            hintContent: 'Новые координаты',
+                            balloonContent: `${address}<br>Новые: ${result.lat.toFixed(6)}, ${result.lon.toFixed(6)}`
+                        }, {
+                            preset: 'islands#greenDotIcon'
+                        });
+                        
+                        collection.add(oldPlacemark);
+                        collection.add(newPlacemark);
+                        
+                        // Обновляем координаты
+                        parts[0] = result.lat.toFixed(6);
+                        parts[1] = result.lon.toFixed(6);
+                        correctedData.push(parts.join('\t'));
+                    } else {
+                        correctedData.push(line);
+                    }
+                    totalProcessed++;
+                } else {
+                    errors.push(`${address} - ${result.error || 'не найден'}`);
+                    correctedData.push(line);
+                }
+                
+                // Задержка между запросами
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            // Добавляем все метки на карту
+            myMap.geoObjects.add(collection);
+            
+            // Устанавливаем границы карты по всем объектам
+            if (collection.getLength() > 0) {
+                myMap.setBounds(collection.getBounds(), {
+                    checkZoomRange: true,
+                    zoomMargin: 50
+                });
+            }
+            
+            progressDiv.style.display = 'none';
+            showStats();
+            showOutput();
+            document.getElementById('downloadBtn').disabled = false;
+            
+            if (errors.length > 0) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.innerHTML = '<h4>Не удалось найти координаты для:</h4>' + errors.join('<br>');
+                resultsDiv.appendChild(errorDiv);
+            }
+        }
+
+        function showStats() {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.style.display = 'block';
+            statsDiv.innerHTML = `
+                <h3>Статистика проверки:</h3>
+                <p>Всего обработано адресов: ${totalProcessed}</p>
+                <p>Исправлено координат: ${totalCorrected}</p>
+                <p>Не найдено адресов: ${errors.length}</p>
+            `;
+        }
+
+        function showOutput() {
+            const outputDiv = document.getElementById('outputData');
+            const outputTextarea = document.getElementById('outputTextarea');
+            outputDiv.style.display = 'block';
+            outputTextarea.value = correctedData.join('\n');
+        }
+
+        function downloadResults() {
+            const content = correctedData.join('\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'corrected_coordinates.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function clearAll() {
+            document.getElementById('inputData').value = '';
+            document.getElementById('outputTextarea').value = '';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('progress').style.display = 'none';
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('outputData').style.display = 'none';
+            document.getElementById('downloadBtn').disabled = true;
+            if (myMap) {
+                myMap.geoObjects.removeAll();
+            }
+            correctedData = [];
+        }
+    </script>
+</body>
+</html>
