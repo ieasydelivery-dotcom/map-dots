@@ -748,6 +748,11 @@ header p {
     transition: all 0.3s ease;
 }
 
+.tools-row .tab-button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .tab-button:hover {
     border-color: #667eea;
     color: #667eea;
