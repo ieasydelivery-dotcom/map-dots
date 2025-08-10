@@ -1,0 +1,19 @@
+# Local tools
+.tools/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Archives
+*.zip
+
+# Node/npm (if ever used)
+node_modules/
+
+# Python (if ever used)
+__pycache__/
+*.pyc
